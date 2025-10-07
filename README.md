@@ -3,6 +3,8 @@ Yet Another FEis Registration System
 
 [Concept scheme](https://drive.google.com/file/d/1B5P3XpQHNtHZ-zlgInDiAqQAC8CVnDc3/view?usp=sharing)
 
+Dynamic DNS -  FreeDNS.afraid.org
+
 ## Entities/tables
 
 ### Competition - Соревнование на феше 
