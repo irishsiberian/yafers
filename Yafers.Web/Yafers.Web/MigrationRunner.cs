@@ -2,26 +2,30 @@
 using EvolveDb;
 using EvolveDb.Migration;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
 using Serilog;
+using Yafers.Web.Data;
 using Yafers.Web.Domain;
 
 namespace Yafers.Web
 {
     public class MigrationRunner : BackgroundService
     {
+        private readonly DatabaseOptions _databaseOptions;
         private readonly IConfiguration _configuration;
         private readonly IServiceScopeFactory _scopeFactory;
 
-        public MigrationRunner(IConfiguration configuration, IServiceScopeFactory scopeFactory) 
+        public MigrationRunner(IConfiguration configuration, IServiceScopeFactory scopeFactory, IOptions<DatabaseOptions> databaseOptions) 
         {
             _configuration = configuration;
             _scopeFactory = scopeFactory;
+            _databaseOptions = databaseOptions.Value;
         }
         
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            var connectionString = _databaseOptions.YafersConnectionString;
 
             using (var scope = _scopeFactory.CreateScope())
             {

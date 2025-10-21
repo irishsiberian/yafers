@@ -11,3 +11,5 @@
 /Yafers.Web/Yafers.Web/.config
 /Yafers.Web/Yafers.Web.Client/bin/Debug/net9.0
 /Yafers.Web/Yafers.Web/logs
+/Yafers.Web/Yafers.Web/bin/Release/net9.0
+/Yafers.Web/Yafers.Web.Client/bin/Release/net9.0

@@ -2,20 +2,20 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
 using Serilog.Exceptions;
 using Swashbuckle.AspNetCore.Filters;
 using Yafers.Web;
-using Yafers.Web.Client.Pages;
 using Yafers.Web.Components;
 using Yafers.Web.Components.Account;
 using Yafers.Web.Data;
 using Yafers.Web.Extensions;
+using Yafers.Web.Middleware;
 using Yafers.Web.Services.EmailSender;
+using Yafers.Web.Telegram;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,7 +40,7 @@ try
 {
     builder.Services.AddCommonConfiguration(builder.Configuration);
 
-//сервисы для аутентификации и Identity
+    //сервисы для аутентификации и Identity
     builder.Services.AddCascadingAuthenticationState();
     builder.Services.AddScoped<IdentityUserAccessor>();
     builder.Services.AddScoped<IdentityRedirectManager>();
@@ -66,10 +66,16 @@ try
     });
 
 //Строка подключения к БД и настройка DbContext
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ??
-                           throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseSqlServer(connectionString));
+    builder.Services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
+    {
+        // Берём DatabaseOptions из DI
+        var dbOptions = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+
+        if (string.IsNullOrEmpty(dbOptions.YafersConnectionString))
+            throw new InvalidOperationException("Database connection string is not configured.");
+
+        options.UseSqlServer(dbOptions.YafersConnectionString);
+    });
     builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
     //Добавляем IdentityApi и IdentityCore
@@ -90,13 +96,19 @@ try
     builder.Services.AddTransient<IEmailSender, EmailSender>();
     builder.Services.Configure<EmailSenderOptions>(builder.Configuration);
 
+    builder.Services.Configure<TelegramBotOptions>(builder.Configuration);
+    builder.Services.Configure<DatabaseOptions>(builder.Configuration);
+    builder.Services.AddScoped<TelegramBot>();
+
     builder.Services.AddHostedService<MigrationRunner>();
 
     var app = builder.Build();
 
     app.MapIdentityApi<ApplicationUser>();
 
-// Configure the HTTP request pipeline.
+    app.UseMiddleware<ExceptionMiddleware>();
+
+    // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())
     {
         app.UseWebAssemblyDebugging();
@@ -132,6 +144,10 @@ try
     {
         //var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         //db.Database.Migrate(); // применяет миграции и создает базу, если ее нет
+        
+        var dbOptions = scope.ServiceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+        Log.Information("Database connection: " + dbOptions.YafersConnectionString);
+
         // Seed roles and admin user
         IdentitySeeder.SeedRolesAndAdminAsync(scope.ServiceProvider).GetAwaiter().GetResult();
     }
@@ -142,5 +158,22 @@ try
 catch (Exception ex)
 {
     Log.Error(ex, "Fatal error");
-    throw;
+    try
+    {
+        using var scope = builder.Services.BuildServiceProvider().CreateScope();
+        var bot = scope.ServiceProvider.GetService<TelegramBot>();
+
+        if (bot != null)
+        {
+            bot.SendException(ex, null).GetAwaiter().GetResult();
+        }
+        else
+        {
+            Log.Warning("TelegramBot is not available in DI — cannot send fatal error");
+        }
+    }
+    catch (Exception sendEx)
+    {
+        Log.Error(sendEx, "Failed to send fatal error to Telegram");
+    }
 }
