@@ -37,7 +37,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Migrations\EvolveFiles\" />
     <Folder Include="Migrations\Repeatable\" />
   </ItemGroup>
 

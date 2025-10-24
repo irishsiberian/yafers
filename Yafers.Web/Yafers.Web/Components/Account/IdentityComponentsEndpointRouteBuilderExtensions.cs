@@ -8,7 +8,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Yafers.Web.Components.Account.Pages;
 using Yafers.Web.Components.Account.Pages.Manage;
-using Yafers.Web.Data;
+using Yafers.Web.Data.Entities;
 
 namespace Microsoft.AspNetCore.Routing
 {

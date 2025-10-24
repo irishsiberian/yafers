@@ -13,3 +13,5 @@
 /Yafers.Web/Yafers.Web/logs
 /Yafers.Web/Yafers.Web/bin/Release/net9.0
 /Yafers.Web/Yafers.Web.Client/bin/Release/net9.0
+/Yafers.sln.DotSettings.user
+/Yafers.Web/Yafers.Web/Properties/PublishProfiles/FolderProfile.pubxml.user

@@ -1,10 +1,8 @@
 ﻿using Microsoft.Extensions.Options;
 using System.Net;
-using Yafers.Web.Domain;
 using Yafers.Web.Middleware;
-using Yafers.Web.Services.EmailSender;
 
-namespace Yafers.Web.Telegram
+namespace Yafers.Web.Services.Telegram
 {
     public class TelegramBot(ILogger<ExceptionMiddleware> logger, IOptions<TelegramBotOptions> optionsAccessor)
     {

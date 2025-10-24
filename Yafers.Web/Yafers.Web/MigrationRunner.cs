@@ -1,5 +1,4 @@
-﻿
-using EvolveDb;
+﻿using EvolveDb;
 using EvolveDb.Migration;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
@@ -21,7 +20,6 @@ namespace Yafers.Web
             _scopeFactory = scopeFactory;
             _databaseOptions = databaseOptions.Value;
         }
-        
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {

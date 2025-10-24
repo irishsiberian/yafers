@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Identity;
-using Yafers.Web.Data;
+using Yafers.Web.Data.Entities;
 
 namespace Yafers.Web.Components.Account
 {

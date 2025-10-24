@@ -1,16 +1,12 @@
-﻿using Azure.Core;
-using brevo_csharp.Api;
+﻿using brevo_csharp.Api;
 using brevo_csharp.Client;
 using brevo_csharp.Model;
-using System.Text.Json;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.Extensions.Options;
-using System.Net.Http.Headers;
-using System.Text;
 using Microsoft.AspNetCore.Identity;
-using Yafers.Web.Data;
 using Task = System.Threading.Tasks.Task;
 using Configuration = brevo_csharp.Client.Configuration;
+using Yafers.Web.Data.Entities;
 
 namespace Yafers.Web.Services.EmailSender
 {

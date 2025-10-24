@@ -12,10 +12,11 @@ using Yafers.Web;
 using Yafers.Web.Components;
 using Yafers.Web.Components.Account;
 using Yafers.Web.Data;
+using Yafers.Web.Data.Entities;
 using Yafers.Web.Extensions;
 using Yafers.Web.Middleware;
 using Yafers.Web.Services.EmailSender;
-using Yafers.Web.Telegram;
+using Yafers.Web.Services.Telegram;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -98,7 +99,7 @@ try
 
     builder.Services.Configure<TelegramBotOptions>(builder.Configuration);
     builder.Services.Configure<DatabaseOptions>(builder.Configuration);
-    builder.Services.AddScoped<TelegramBot>();
+    builder.Services.AddSingleton<TelegramBot>();
 
     builder.Services.AddHostedService<MigrationRunner>();
 

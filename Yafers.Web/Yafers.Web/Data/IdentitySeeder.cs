@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Yafers.Web.Data.Entities;
 
 namespace Yafers.Web.Data
 {
@@ -10,7 +11,7 @@ namespace Yafers.Web.Data
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
             // Define roles to seed
-            var roles = new[] { "Admin", "Teacher", "Dancer", "Organiser", "Adjudicator" };
+            var roles = new[] { "Admin", "Teacher", "Dancer", "Organiser", "Adjudicator", "DancerParent" };
 
             // Seed roles
             foreach (var role in roles)

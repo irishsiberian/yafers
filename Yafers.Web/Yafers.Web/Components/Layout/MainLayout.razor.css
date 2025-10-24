@@ -9,7 +9,7 @@ main {
 }
 
 .sidebar {
-    background-image: linear-gradient(180deg, rgb(3, 120, 50) 0%, #0b3d1e 70%)
+    background-image: linear-gradient(180deg, rgb(3, 120, 50) 0%, #0b3d1e 70%);
 }
 
 .top-row {
@@ -94,3 +94,7 @@ main {
         right: 0.75rem;
         top: 0.5rem;
     }
+
+.underline {
+    text-decoration: underline;
+}

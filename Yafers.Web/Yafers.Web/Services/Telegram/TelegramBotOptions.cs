@@ -1,4 +1,4 @@
-﻿namespace Yafers.Web.Telegram
+﻿namespace Yafers.Web.Services.Telegram
 {
     public class TelegramBotOptions
     {

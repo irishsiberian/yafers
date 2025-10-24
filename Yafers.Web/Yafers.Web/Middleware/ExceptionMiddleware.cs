@@ -1,4 +1,4 @@
-﻿using Yafers.Web.Telegram;
+﻿using Yafers.Web.Services.Telegram;
 
 namespace Yafers.Web.Middleware;
 

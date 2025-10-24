@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
-using Yafers.Web.Data;
+using Yafers.Web.Data.Entities;
 
 namespace Yafers.Web.Components.Account
 {

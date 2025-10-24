@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.Security.Claims;
 using Yafers.Web.Client;
-using Yafers.Web.Data;
+using Yafers.Web.Data.Entities;
 
 namespace Yafers.Web.Components.Account
 {
