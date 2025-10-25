@@ -7,8 +7,10 @@ namespace Yafers.Web.Data.Entities
     {
         public int Id { get; set; }
         public string Name { get; set; }
+        public bool IsSolo { get; set; }
         public int? DanceId { get; set; }
         public DanceLevel Level { get; set; }
+        public bool IsComplex { get; set; }
         public int Speed { get; set; }
         public int MinAge { get; set; }
         public int MaxAge { get; set; }

@@ -237,6 +237,7 @@ namespace Yafers.Web.Data
             }
         }
 
+        public DbSet<AffiliationFee> AffiliationFees { get; set; }
         public DbSet<ApplicationUser> ApplicationUsers { get; set; }
         public DbSet<Audit> Audits { get; set; }
         public DbSet<Association> Associations { get; set; }
@@ -249,7 +250,7 @@ namespace Yafers.Web.Data
         public DbSet<DancerLevel> DancerLevels { get; set; }
         public DbSet<DancerParent> DancerParents { get; set; }
         public DbSet<DancerRegistration> DancerRegistrations { get; set; }
-        public DbSet<Feis> Feisanna { get; set; }
+        public DbSet<Feis> Feiseanna { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
         public DbSet<ModernSet> ModernSets { get; set; }
         public DbSet<Organiser> Organisers { get; set; }

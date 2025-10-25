@@ -131,6 +131,9 @@ namespace Yafers.Web.Data
                 entity.HasOne(c => c.TeacherUser)
                     .WithMany()
                     .HasForeignKey(c => c.UserId);
+                entity.HasMany(c => c.AffiliationFees)
+                    .WithOne()
+                    .HasForeignKey(d => d.TeacherId);
             });
 
             builder.Entity<School>(entity =>

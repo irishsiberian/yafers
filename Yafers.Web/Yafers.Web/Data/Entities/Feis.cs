@@ -21,6 +21,8 @@ namespace Yafers.Web.Data.Entities
         public int SyllabusId { get; set; }
         public int MaxEntriesCount { get; set; }
         public FeisStatus Status { get; set; }
+        public bool IsAssociationFeePaid { get; set; }
+        public DateTime? AssociationFeePaidAtUtc { get; set; }
 
         public DateTime CreatedAtUtc { get; set; }
         public string CreatedBy { get; set; }

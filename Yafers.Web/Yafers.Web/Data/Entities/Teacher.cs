@@ -13,6 +13,7 @@ namespace Yafers.Web.Data.Entities
         public string Email { get; set; }
         public string UserId { get; set; }
         public TeacherQualification Qualification { get; set; }
+        public bool IsApprovedByAdminOrAnotherTeacher { get; set; }
 
         public DateTime CreatedAtUtc { get; set; }
         public string CreatedBy { get; set; }
@@ -24,5 +25,6 @@ namespace Yafers.Web.Data.Entities
 
         public ApplicationUser TeacherUser { get; set; }
         public School School { get; set; }
+        public List<AffiliationFee> AffiliationFees { get; set; }
     }
 }

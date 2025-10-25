@@ -8,7 +8,9 @@ namespace Yafers.Web.Data.Entities
         public int DancerId { get; set; }
         public int FeisId { get; set; }
         public int DancerNumber { get; set; }
-        public DateTime NumberAssignedAtUtc { get; set; }
+        public DateTime? NumberAssignedAtUtc { get; set; }
+        public bool IsYafersFeePaid { get; set; }
+        public DateTime? YafersFeePaidAtUtc { get; set; }
 
         public DateTime CreatedAtUtc { get; set; }
         public string CreatedBy { get; set; }

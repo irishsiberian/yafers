@@ -10,6 +10,7 @@ namespace Yafers.Web.Data.Entities
         public string StripeKey { get; set; }
         public bool PayPalEnabled { get; set; }
         public string PayPalCode { get; set; }
+        public bool IsApprovedByAdmin { get; set; }
 
         public DateTime CreatedAtUtc { get; set; }
         public string CreatedBy { get; set; }

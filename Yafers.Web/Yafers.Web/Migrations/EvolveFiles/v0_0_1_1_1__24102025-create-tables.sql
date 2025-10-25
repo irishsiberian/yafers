@@ -17,7 +17,10 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Assoc
         CREATE TABLE Associations
         (
             Id INT IDENTITY(1,1) PRIMARY KEY,
-            Name NVARCHAR(200) NOT NULL
+            Name NVARCHAR(200) NOT NULL,
+            AffiliationFeeAmount DECIMAL(18,2) NOT NULL,
+            LocalFeisFeeAmount DECIMAL(18,2) NOT NULL,
+            StripeKey NVARCHAR(200) NOT NULL
         );
     END
 
@@ -55,7 +58,7 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Dance
             UpdatedBy NVARCHAR(450) NULL,
             DeletedAtUtc DATETIME2 NULL,
             DeletedBy NVARCHAR(450) NULL,
-            IsDeleted BIT NOT NULL DEFAULT(0),
+            IsDeleted BIT NOT NULL DEFAULT(0)
         );
     END
 
@@ -128,6 +131,7 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Organ
             StripeKey NVARCHAR(200) NULL,
             PayPalEnabled BIT NOT NULL DEFAULT(0),
             PayPalCode NVARCHAR(MAX) NULL,
+            IsApprovedByAdmin BIT NOT NULL DEFAULT(0),
 
             CreatedAtUtc DATETIME2 NOT NULL,
             CreatedBy NVARCHAR(450) NOT NULL,
@@ -153,6 +157,7 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Teach
             Email NVARCHAR(100) NULL,
             UserId NVARCHAR(450) NULL,
             Qualification INT NOT NULL,
+            IsApprovedByAdminOrAnotherTeacher BIT NOT NULL DEFAULT(0),
 
             CreatedAtUtc DATETIME2 NOT NULL,
             CreatedBy NVARCHAR(450) NOT NULL,
@@ -166,6 +171,24 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Teach
             CONSTRAINT FK_Teachers_Users FOREIGN KEY (UserId) REFERENCES AspNetUsers(Id)
         );
     END
+
+IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[AffiliationFees]') AND type in (N'U'))
+    BEGIN
+        CREATE TABLE [dbo].[AffiliationFees]
+        (
+            [Id] INT IDENTITY(1,1) PRIMARY KEY,
+            [TeacherId] INT NOT NULL,
+            [Year] INT NOT NULL,
+            [DueDate] DATETIME2 NOT NULL,
+            [IsPaid] BIT NOT NULL DEFAULT(0),
+            [PaidAtUtc] DATETIME2 NULL,
+
+            CONSTRAINT [FK_AffiliationFees_Teachers_TeacherId]
+                FOREIGN KEY ([TeacherId]) REFERENCES [dbo].[Teachers]([Id])
+        );
+    END;
+GO
+
 
 IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Syllabi')
     BEGIN
@@ -199,10 +222,12 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Compe
             Id INT IDENTITY(1,1) PRIMARY KEY,
             Name NVARCHAR(200) NOT NULL,
             DanceId INT NULL, -- can be null for special dance
+            IsSolo BIT NOT NULL DEFAULT(0),
             Level INT NOT NULL,           -- enum DanceLevel
             Speed INT NOT NULL,
             MinAge INT NOT NULL,
             MaxAge INT NOT NULL,
+            IsComplex BIT NOT NULL DEFAULT(0),
             IsTeam BIT NOT NULL DEFAULT(0),
             TeamType INT NOT NULL,        -- enum TeamType
             IsModernSet BIT NOT NULL DEFAULT(0),
@@ -221,9 +246,9 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Compe
         );
     END
 
-IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Feisanna')
+IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Feiseanna')
     BEGIN
-        CREATE TABLE Feisanna
+        CREATE TABLE Feiseanna
         (
             Id INT IDENTITY(1,1) PRIMARY KEY,
             Name NVARCHAR(200) NOT NULL,
@@ -241,6 +266,8 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Feisa
             SyllabusId INT NOT NULL,            -- FK на Syllabi
             MaxEntriesCount INT NULL,
             Status INT NOT NULL,                -- enum FeisStatus
+            IsYafersFeePaid BIT NOT NULL DEFAULT(0),
+            YafersFeePaidAtUtc DATETIME2 NULL,
 
             CreatedAtUtc DATETIME2 NOT NULL,
             CreatedBy NVARCHAR(450) NOT NULL,
@@ -250,9 +277,9 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Feisa
             DeletedBy NVARCHAR(450) NULL,
             IsDeleted BIT NOT NULL DEFAULT(0),
 
-            CONSTRAINT FK_Feisanna_Schools FOREIGN KEY (OrganiserSchoolId) REFERENCES Schools(Id),
-            CONSTRAINT FK_Feisanna_Associations FOREIGN KEY (AssociationId) REFERENCES Associations(Id),
-            CONSTRAINT FK_Feisanna_Syllabi FOREIGN KEY (SyllabusId) REFERENCES Syllabi(Id)
+            CONSTRAINT FK_Feiseanna_Schools FOREIGN KEY (OrganiserSchoolId) REFERENCES Schools(Id),
+            CONSTRAINT FK_Feiseanna_Associations FOREIGN KEY (AssociationId) REFERENCES Associations(Id),
+            CONSTRAINT FK_Feiseanna_Syllabi FOREIGN KEY (SyllabusId) REFERENCES Syllabi(Id)
         );
     END
 
@@ -275,7 +302,7 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Invoi
             DeletedBy NVARCHAR(450) NULL,
             IsDeleted BIT NOT NULL DEFAULT(0),
 
-            CONSTRAINT FK_Invoices_Feis FOREIGN KEY (FeisId) REFERENCES Feisanna(Id)
+            CONSTRAINT FK_Invoices_Feis FOREIGN KEY (FeisId) REFERENCES Feiseanna(Id)
         );
     END
 
@@ -337,9 +364,11 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Dance
         (
             Id INT IDENTITY(1,1) PRIMARY KEY,
             DancerId INT NOT NULL,            -- FK на Dancers
-            FeisId INT NOT NULL,              -- FK на Feisanna
+            FeisId INT NOT NULL,              -- FK на Feiseanna
             DancerNumber INT NOT NULL,
-            NumberAssignedAtUtc DATETIME2 NOT NULL,
+            NumberAssignedAtUtc DATETIME2 NULL,
+            IsYafersFeePaid BIT NOT NULL DEFAULT(0),
+            YafersFeePaidAtUtc DATETIME2 NULL,
 
             CreatedAtUtc DATETIME2 NOT NULL,
             CreatedBy NVARCHAR(450) NOT NULL,
@@ -350,7 +379,7 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Dance
             IsDeleted BIT NOT NULL DEFAULT(0),
 
             CONSTRAINT FK_DancerRegistrations_Dancers FOREIGN KEY (DancerId) REFERENCES Dancers(Id),
-            CONSTRAINT FK_DancerRegistrations_Feis FOREIGN KEY (FeisId) REFERENCES Feisanna(Id)
+            CONSTRAINT FK_DancerRegistrations_Feis FOREIGN KEY (FeisId) REFERENCES Feiseanna(Id)
         );
     END
 
@@ -360,8 +389,8 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Compe
         (
             Id INT IDENTITY(1,1) PRIMARY KEY,
             DancerId INT NOT NULL,           -- FK на Dancers
-            DancerRegistrationId INT NOT NULL, -- FK на DancerRegistrations
-            FeisId INT NOT NULL,             -- FK на Feisanna
+            DancerRegistrationId INT NULL, -- FK на DancerRegistrations
+            FeisId INT NOT NULL,             -- FK на Feiseanna
             CompetitionId INT NOT NULL,      -- FK на Competitions
             InvoiceId INT NULL,              -- FK на Invoices
             TeamId INT NULL,                 -- FK на Teams
@@ -380,7 +409,7 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Compe
 
             CONSTRAINT FK_CompetitionRegistrations_DancerRegistrations FOREIGN KEY (DancerRegistrationId) REFERENCES DancerRegistrations(Id),
             CONSTRAINT FK_CompetitionRegistrations_Dancers FOREIGN KEY (DancerId) REFERENCES Dancers(Id),
-            CONSTRAINT FK_CompetitionRegistrations_Feis FOREIGN KEY (FeisId) REFERENCES Feisanna(Id),
+            CONSTRAINT FK_CompetitionRegistrations_Feis FOREIGN KEY (FeisId) REFERENCES Feiseanna(Id),
             CONSTRAINT FK_CompetitionRegistrations_Competitions FOREIGN KEY (CompetitionId) REFERENCES Competitions(Id),
             CONSTRAINT FK_CompetitionRegistrations_Invoices FOREIGN KEY (InvoiceId) REFERENCES Invoices(Id),
             CONSTRAINT FK_CompetitionRegistrations_Teams FOREIGN KEY (TeamId) REFERENCES Teams(Id),
@@ -395,14 +424,14 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Repor
         CREATE TABLE Reports
         (
             Id INT IDENTITY(1,1) PRIMARY KEY,
-            FeisId INT NOT NULL,                -- FK на Feisanna
+            FeisId INT NOT NULL,                -- FK на Feiseanna
             FileUrl NVARCHAR(4096) NOT NULL,
             FileName NVARCHAR(1024) NOT NULL,
             Type INT NOT NULL,                   -- enum ReportType
             Status INT NOT NULL,                 -- enum ReportStatus
             CreatedAtUtc DATETIME2 NOT NULL,
 
-            CONSTRAINT FK_Reports_Feis FOREIGN KEY (FeisId) REFERENCES Feisanna(Id)
+            CONSTRAINT FK_Reports_Feis FOREIGN KEY (FeisId) REFERENCES Feiseanna(Id)
         );
     END
 

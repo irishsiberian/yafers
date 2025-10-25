@@ -6,7 +6,7 @@ namespace Yafers.Web.Data.Entities
     {
         public int Id { get; set; }
         public int DancerId { get; set; }
-        public int DancerRegistrationId { get; set; }
+        public int? DancerRegistrationId { get; set; }
         public int FeisId { get; set; }
         public int CompetitionId { get; set; }
         public int? InvoiceId { get; set; }
