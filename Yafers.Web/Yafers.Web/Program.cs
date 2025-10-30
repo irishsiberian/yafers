@@ -20,6 +20,7 @@ using Yafers.Web.Services;
 using Yafers.Web.Services.Business;
 using Yafers.Web.Services.Business.Interfaces;
 using Yafers.Web.Services.EmailSender;
+using Yafers.Web.Services.Feiseanna;
 using Yafers.Web.Services.Telegram;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -132,6 +133,9 @@ try
     builder.Services.AddScoped<ITeacherService, TeacherService>();
     builder.Services.AddScoped<IOrganiserService, OrganiserService>();
     builder.Services.AddScoped<IUserPermissionService, UserPermissionService>();
+    builder.Services.AddScoped<IFeisService, FeisService>();
+    builder.Services.AddScoped<IDancerService, DancerService>();
+    builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 
     builder.Services.AddScoped<UserManagerWrapper>();
 

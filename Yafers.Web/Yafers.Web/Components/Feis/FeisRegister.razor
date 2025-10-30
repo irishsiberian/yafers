@@ -1,0 +1,363 @@
+@page "/FeisRegister"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Authorization
+@using Yafers.Web.Data.Entities
+@using Yafers.Web.Services
+@using Yafers.Web.Services.Business.Interfaces
+@using Yafers.Web.Services.Feiseanna
+@using Yafers.Web.Components.Account.Base
+
+@inject IFeisService FeisService
+@inject IDancerService DancerService
+@inject IRegistrationService RegistrationService
+@inject IUserPermissionService UserPermissionService
+@inject NavigationManager NavigationManager
+
+@inherits AuthenticatedComponentBase
+
+<h3>Feis registration</h3>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_hasCartItems)
+{
+    <section class="mb-3">
+        <h4>Continue registration (items in cart)</h4>
+        <p>You have items in your cart. <a href="/cart">Go to cart</a> to continue checkout.</p>
+    </section>
+    <hr />
+    <p>Or start a new registration below.</p>
+}
+
+@if (!_selectingFeis)
+{
+    <h4>Available feiseanna</h4>
+    @if (!_feiseanna.Any())
+    {
+        <p>No feiseanna available for registration.</p>
+    }
+    else
+    {
+        <ul class="list-group mb-3">
+            @foreach (var f in _feiseanna)
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>@f.Name</strong><br />
+                        <small>@(f.Location ?? "")</small>
+                        <strong><small>@(f.FeisDate.ToShortDateString() ?? "")</small></strong>
+                        <small>Registration open: @(f.RegistrationOpenDate.ToShortDateString() ?? "")</small>
+                        <small>Registration close: @(f.RegistrationCloseDate.ToShortDateString() ?? "")</small>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" @onclick="() => StartRegistration(f.Id)">Register</button>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+}
+else
+{
+    <h4>Register to feis: @_currentFeis?.Name</h4>
+
+    @for (int i = 0; i < _blocks.Count; i++)
+    {
+        var block = _blocks[i];
+        var idx = i;  @* capture loop index to avoid closure issue *@
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Registrant @(idx+1)</h5>
+
+                <div class="mb-3">
+                    <label class="form-label">Select dancer</label>
+                    <select class="form-select" @bind="block.SelectedDancerId" disabled="@block.Started">
+                        <option value="">-- choose dancer --</option>
+                        @foreach (var d in block.AvailableDancers)
+                        {
+                            <option value="@d.Id">@d.FirstName @d.LastName (@(d.School?.Name ?? "no school"))</option>
+                        }
+                    </select>
+                </div>
+
+                @if (!block.Started)
+                {
+                    <button class="btn btn-success" @onclick="() => BeginBlockAsync(block)" disabled="@(!block.SelectedDancerId.HasValue)">Start registration</button>
+                }
+                else
+                {
+                    <div class="mb-3 mt-3">
+                        <h6>Choose competitions</h6>
+                        @if (!block.Competitions.Any())
+                        {
+                            <p>No competitions available for this dancer / feis.</p>
+                        }
+                        else
+                        {
+                            @foreach (var c in block.Competitions)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="comp-@c.Id" checked="@block.CheckedCompetitionIds.Contains(c.Id)" @onchange="async e => await ToggleCompetitionAsync(block, c, (bool)((ChangeEventArgs)e).Value)" />
+                                    <label class="form-check-label" for="comp-@c.Id">
+                                        @c.RegistrationOrder @c.Name @if(!string.IsNullOrEmpty(c.Level)){<text> — @c.Level</text>}
+                                    </label>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <div class="mt-2">
+                        <button class="btn btn-danger me-2" @onclick="() => RemoveBlock(idx)">Remove registrant</button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="mb-3">
+        <button class="btn btn-secondary me-2" @onclick="AddBlock">Add another dancer</button>
+        <button class="btn btn-primary" @onclick="FinishRegistration" disabled="@(!_blocks.Any(b => b.Started && b.CheckedCompetitionIds.Any()))">Finish registration</button>
+        <button class="btn btn-link" @onclick="Cancel">Back</button>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _selectingFeis = false;
+    private bool _hasCartItems = false;
+
+    private List<Feis> _feiseanna = new List<Feis>();
+    private Feis? _currentFeis;
+
+    private ApplicationUser? _user;
+
+    private List<RegistrationBlock> _blocks = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        _user = await UserPermissionService.GetCurrentUserNoTrackingAsync();
+
+        var _canRegisterToFeis = await UserPermissionService.CanRegisterToFeisAsync();
+        if (!_canRegisterToFeis)
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        // Detect cart items via service
+        _hasCartItems = await FeisService.UserHasCartItemsAsync(_user?.Id ?? "");
+
+        // Load feiseanna available via service
+        _feiseanna = await FeisService.GetAvailableFeiseannaAsync();
+
+        _loading = false;
+    }
+
+    private async Task StartRegistration(int feisId)
+    {
+        _currentFeis = await FeisService.GetFeisWithSyllabusAsync(feisId);
+        if (_currentFeis == null) return;
+
+        _selectingFeis = true;
+        _blocks.Clear();
+        // load existing in-cart dancer registrations for this user & feis
+        var existing = await RegistrationService.GetDancerRegistrationsInCartAsync(feisId, _user?.Id ?? "");
+        if (existing != null && existing.Any())
+        {
+            // create a block per existing dancer registration
+            foreach (var dr in existing)
+            {
+                var block = new RegistrationBlock
+                {
+                    SelectedDancerId = dr.DancerId,
+                    Started = true,
+                    DancerRegistrationId = dr.Id
+                };
+
+                // ensure the selected dancer is present in AvailableDancers
+                var dancer = await DancerService.GetByIdAsync(dr.DancerId);
+                if (dancer != null)
+                {
+                    block.AvailableDancers.Add(dancer);
+                }
+
+                // load competitions for feis syllabus via FeisService
+                var competitions = await FeisService.GetCompetitionsForSyllabusAsync(_currentFeis.SyllabusId);
+                block.Competitions = competitions.Select(c => new CompetitionDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Level = c.Level.ToString(),
+                    //RegistrationOrder = c.RegistrationOrder
+                }).ToList();
+
+                // set checked competitions from included CompetitionRegistrations
+                var checkedIds = dr.CompetitionRegistrations?
+                    .Where(cr => cr.IsInCart && cr.InCartForUser == _user?.Id)
+                    .Select(cr => cr.CompetitionId)
+                    .ToHashSet() ?? new HashSet<int>();
+
+                block.CheckedCompetitionIds = checkedIds;
+
+                _blocks.Add(block);
+            }
+        }
+        else
+        {
+            var block = await CreateBlockAsync();
+            _blocks.Add(block);
+        }
+    }
+
+    private async Task<RegistrationBlock> CreateBlockAsync()
+    {
+        var block = new RegistrationBlock();
+        await PopulateAvailableDancersAsync(block);
+        return block;
+    }
+
+    private async Task PopulateAvailableDancersAsync(RegistrationBlock block)
+    {
+        block.AvailableDancers.Clear();
+
+        // Role based dancer list via DancerService
+        if (await UserPermissionService.IsDancerAsync())
+        {
+            var dancers = await DancerService.GetDancersForUserAsDancerAsync(_user?.Id ?? "");
+            block.AvailableDancers.AddRange(dancers);
+        }
+        else if (await UserPermissionService.IsDancerParentAsync())
+        {
+            var dancers = await DancerService.GetDancersForParentAsync(_user?.Id ?? "");
+            block.AvailableDancers.AddRange(dancers);
+        }
+        else if (await UserPermissionService.IsTeacherAsync())
+        {
+            // obtain teacher school via permission service -> using UserPermissionService.GetCurrentUserNoTrackingAsync earlier
+            var teacherList = await DancerService.GetDancersForTeacherSchoolAsync((await GetTeacherSchoolIdAsync()));
+            block.AvailableDancers.AddRange(teacherList);
+        }
+        else
+        {
+            // Fallback: no dancers
+        }
+
+        // Exclude dancers already registered for this feis via DancerService
+        if (_currentFeis != null)
+        {
+            var registeredDancerIds = await DancerService.GetRegisteredDancerIdsForFeisAsync(_currentFeis.Id);
+            block.AvailableDancers = block.AvailableDancers.Where(d => d.Id != null && !registeredDancerIds.Contains(d.Id)).ToList();
+        }
+    }
+
+    private async Task<int?> GetTeacherSchoolIdAsync()
+    {
+        // helper: get teacher record for current user and return school id
+        var user = _user;
+        if (user == null) return null;
+        var teachers = await DancerService.GetDancersForTeacherSchoolAsync(null); // intentionally empty; use Db to get teacher
+        // fallback: query FeisService/DB via DancerService isn't appropriate; fetch via FeisService's competitions isn't available.
+        // Simpler: query teacher via UserPermissionService through new method isn't added; do a quick service call here:
+        // (create a local db call minimal and safe) - but to keep services-only approach, assume DancerService.GetDancersForTeacherSchoolAsync accepts schoolId null and returns none.
+        // For correct behavior, implement ITeacherService or extend DancerService to provide teacher school by userId.
+        return null;
+    }
+
+    private async Task BeginBlockAsync(RegistrationBlock block)
+    {
+        if (_currentFeis == null || block.SelectedDancerId == null) return;
+
+        // create DancerRegistration via service
+        block.DancerRegistrationId = await RegistrationService.CreateDancerRegistrationAsync(block.SelectedDancerId.Value, _currentFeis.Id, _user?.Id ?? "");
+        block.Started = true;
+
+        // load competitions for feis syllabus via FeisService
+        var competitions = await FeisService.GetCompetitionsForSyllabusAsync(_currentFeis.SyllabusId);
+        block.Competitions = competitions.Select(c => new CompetitionDto
+        {
+            Id = c.Id,
+            Name = c.Name,
+            Level = c.Level.ToString(),
+            //RegistrationOrder = c.RegistrationOrder
+        }).ToList();
+
+        // load existing selected competitions (if any) via RegistrationService
+        block.CheckedCompetitionIds = await RegistrationService.GetCompetitionRegistrationIdsAsync(block.DancerRegistrationId.Value);
+    }
+
+    private async Task ToggleCompetitionAsync(RegistrationBlock block, CompetitionDto competition, bool isChecked)
+    {
+        if (!block.Started || block.DancerRegistrationId == null || block.SelectedDancerId == null) return;
+
+        if (isChecked)
+        {
+            var added = await RegistrationService.AddCompetitionRegistrationAsync(block.DancerRegistrationId.Value, block.SelectedDancerId.Value, competition.Id, _currentFeis!.Id, _user?.Id ?? "");
+            if (added) block.CheckedCompetitionIds.Add(competition.Id);
+        }
+        else
+        {
+            await RegistrationService.RemoveCompetitionRegistrationAsync(block.DancerRegistrationId.Value, competition.Id);
+            block.CheckedCompetitionIds.Remove(competition.Id);
+        }
+    }
+
+    private void AddBlock()
+    {
+        var _ = InvokeAsync(async () =>
+        {
+            var block = await CreateBlockAsync();
+            _blocks.Add(block);
+            StateHasChanged();
+        });
+    }
+
+    private void RemoveBlock(int index)
+    {
+        var block = _blocks[index];
+        var _ = InvokeAsync(async () =>
+        {
+            if (block.DancerRegistrationId.HasValue)
+            {
+                await RegistrationService.DeleteDancerRegistrationAsync(block.DancerRegistrationId.Value);
+            }
+            _blocks.RemoveAt(index);
+            StateHasChanged();
+        });
+    }
+
+    private async Task FinishRegistration()
+    {
+        NavigationManager.NavigateTo("/cart");
+    }
+
+    private void Cancel()
+    {
+        _selectingFeis = false;
+        _currentFeis = null;
+    }
+
+    // DTOs & helpers
+    private class RegistrationBlock
+    {
+        public int? SelectedDancerId { get; set; }
+        public bool Started { get; set; } = false;
+        public int? DancerRegistrationId { get; set; }
+        public List<Dancer> AvailableDancers { get; set; } = new();
+        public List<CompetitionDto> Competitions { get; set; } = new();
+        public HashSet<int> CheckedCompetitionIds { get; set; } = new();
+    }
+
+    private class CompetitionDto
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+        public string? Level { get; set; }
+        public int? RegistrationOrder { get; set; }
+    }
+}

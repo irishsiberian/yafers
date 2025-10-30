@@ -18,17 +18,17 @@ namespace Yafers.Web.Data.Entities
         public TeamType TeamType { get; set; }
         public bool IsModernSet { get; set; }
         public bool IsSpecial { get; set; }
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         public DateTime CreatedAtUtc { get; set; }
         public string CreatedBy { get; set; }
         public DateTime? UpdatedAtUtc { get; set; }
-        public string UpdatedBy { get; set; }
+        public string? UpdatedBy { get; set; }
         public DateTime? DeletedAtUtc { get; set; }
-        public string DeletedBy { get; set; }
+        public string? DeletedBy { get; set; }
         public bool IsDeleted { get; set; }
 
-        public List<Round> Rounds { get; set; }
+        public List<Round>? Rounds { get; set; }
         public Dance Dance { get; set; }
         public List<SyllabusCompetition> SyllabusCompetitions { get; set; }
         public List<Syllabus> Syllabi { get; set; }

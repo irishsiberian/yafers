@@ -13,12 +13,12 @@ namespace Yafers.Web.Data.Entities
         public DateTime CreatedAtUtc { get; set; }
         public string CreatedBy { get; set; }
         public DateTime? UpdatedAtUtc { get; set; }
-        public string UpdatedBy { get; set; }
+        public string? UpdatedBy { get; set; }
         public DateTime? DeletedAtUtc { get; set; }
-        public string DeletedBy { get; set; }
+        public string? DeletedBy { get; set; }
         public bool IsDeleted { get; set; }
 
-        public Competition Competition { get; set; }
-        public Syllabus Syllabus { get; set; }
+        public Competition? Competition { get; set; }
+        public Syllabus? Syllabus { get; set; }
     }
 }

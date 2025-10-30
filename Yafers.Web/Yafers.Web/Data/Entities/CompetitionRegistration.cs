@@ -16,13 +16,15 @@ namespace Yafers.Web.Data.Entities
         public int? CeiliId { get; set; }
         public string RegistrarId { get; set; }
         public bool IsInCart { get; set; }
+        public string? InCartForUser { get; set; }
+        public DateTime? AddedToCartAtUtc { get; set; }
 
-        public DateTime CreatedAtUtc { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
         public string CreatedBy { get; set; }
         public DateTime? UpdatedAtUtc { get; set; }
-        public string UpdatedBy { get; set; }
+        public string? UpdatedBy { get; set; }
         public DateTime? DeletedAtUtc { get; set; }
-        public string DeletedBy { get; set; }
+        public string? DeletedBy { get; set; }
         public bool IsDeleted { get; set; }
 
         public Dancer Dancer { get; set; }
