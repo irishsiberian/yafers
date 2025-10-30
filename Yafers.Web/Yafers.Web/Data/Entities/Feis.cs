@@ -40,5 +40,6 @@ namespace Yafers.Web.Data.Entities
         public List<CompetitionRegistration> CompetitionRegistrations { get; set; }
         public List<DancerRegistration> DancerRegistrations { get; set; }
         public List<Report> Reports { get; set; }
+        public List<AgeCategory> AgeCategories { get; set; }
     }
 }

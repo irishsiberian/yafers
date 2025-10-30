@@ -143,6 +143,6 @@
         [Required] public string FirstName { get; set; } = "";
         [Required] public string LastName { get; set; } = "";
         [Required] public DateTime BirthDate { get; set; } = DateTime.UtcNow;
-        public int? SchoolId { get; set; }
+        [Required] public int? SchoolId { get; set; }
     }
 }

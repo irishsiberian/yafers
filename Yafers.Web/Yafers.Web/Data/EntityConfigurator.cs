@@ -209,6 +209,18 @@ namespace Yafers.Web.Data
                 entity.Property(e => e.PriceOverride).HasPrecision(18, 2);
             });
 
+            builder.Entity<AgeCategory>(entity =>
+            {
+                entity.ToTable("AgeCategories");
+                entity.HasKey(e => e.Id);
+                entity.HasOne(c => c.Feis)
+                    .WithMany(c => c.AgeCategories)
+                    .HasForeignKey(c => c.FeisId);
+                entity.HasOne(c => c.Competition)
+                    .WithMany()
+                    .HasForeignKey(c => c.CompetitionId);
+            });
+
             // Apply global query filter for IAuditable entities: IsDeleted == false
             foreach (var entityType in builder.Model.GetEntityTypes())
             {

@@ -86,9 +86,10 @@
         var user = await UserManager.FindByEmailAsync(Input.Email);
         if (user == null)
         {
-            throw new ApplicationException("Invalid login/password");
+            errorMessage = "Invalid login or password.";
+            return;
         }
-        var result = await SignInManager.CheckPasswordSignInAsync(user, Input.Password, lockoutOnFailure: false);
+        var result = await SignInManager.CheckPasswordSignInAsync(user, Input.Password, lockoutOnFailure: true);
         //var result = await SignInManager.PasswordSignInAsync(user.UserName, Input.Password, Input.RememberMe, lockoutOnFailure: false);
 
         var isEmailConfirmed = await UserManager.IsEmailConfirmedAsync(user);
@@ -111,8 +112,9 @@
         }
         else if (result.IsLockedOut)
         {
+            errorMessage = $"Account locked due to multiple failed login attempts. Try again in {TimeSpan.FromMinutes(15).TotalMinutes} minutes.";
             Logger.LogWarning("User account locked out.");
-            RedirectManager.RedirectTo("Account/Lockout");
+            // RedirectManager.RedirectTo("Account/Lockout");
         }
         else
         {

@@ -288,6 +288,7 @@ namespace Yafers.Web.Data
         public DbSet<SyllabusCompetition> SyllabusCompetitions { get; set; }
         public DbSet<Teacher> Teachers { get; set; }
         public DbSet<Team> Teams { get; set; }
+        public DbSet<AgeCategory> AgeCategories { get; set; }
     }
  
 }

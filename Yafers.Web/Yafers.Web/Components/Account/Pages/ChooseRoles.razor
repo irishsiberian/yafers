@@ -83,11 +83,11 @@
         var next = await UserPermissionService.GetNextIncompleteRolePageAsync(user);
         if (next is not null)
         {
-            RedirectManager.RedirectTo(next, new() { ["returnUrl"] = returnUrl });
+            RedirectManager.RedirectToInteractive(next);
             return;
         }
 
-        RedirectManager.RedirectTo(returnUrl ?? "");
+        RedirectManager.RedirectToInteractive(returnUrl ?? "");
     }
 
     private sealed class RolesModel

@@ -97,6 +97,11 @@ try
     //Добавляем IdentityApi и IdentityCore
     builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
         {
+            // Lockout
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15); 
+            options.Lockout.MaxFailedAccessAttempts = 3; 
+            options.Lockout.AllowedForNewUsers = true;
+
             options.SignIn.RequireConfirmedEmail = true;
             options.SignIn.RequireConfirmedAccount = true; 
         })

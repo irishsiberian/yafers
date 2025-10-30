@@ -1,8 +1,12 @@
+@using System.Diagnostics.CodeAnalysis
 @using Yafers.Web.Services.Business.Interfaces
+
 @inject ISchoolService SchoolService
 
+@inherits InputBase<int?>
+
 <div class="school-select">
-    <select class="form-select" @bind="SelectedId">
+    <select class="form-select" @bind="SelectedId" required="@Required">
         <option value="0">-- select school --</option>
         @foreach (var s in Items)
         {
@@ -16,13 +20,8 @@
 
 @code {
     [Parameter]
-    public int? Value { get; set; }
-
-    [Parameter]
-    public EventCallback<int?> ValueChanged { get; set; }
-
-    [Parameter]
     public string Placeholder { get; set; } = "Select school";
+    [Parameter] public bool Required { get; set; }
 
     private List<SchoolItem> Items { get; set; } = new();
 
@@ -83,4 +82,26 @@
         public string? City { get; set; }
         public string? Country { get; set; }
     }
+
+    protected override bool TryParseValueFromString(string? value, out int? result, [NotNullWhen(false)] out string? validationErrorMessage)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            result = null;
+            validationErrorMessage = null;
+            return true;
+        }
+
+        if (int.TryParse(value, out var v))
+        {
+            result = v;
+            validationErrorMessage = null;
+            return true;
+        }
+
+        result = null;
+        validationErrorMessage = "The selected value is not valid.";
+        return false;
+    }
+
 }
