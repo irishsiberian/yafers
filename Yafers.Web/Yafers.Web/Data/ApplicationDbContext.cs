@@ -6,17 +6,39 @@ using Yafers.Web.Data.Entities;
 using Yafers.Web.Data.Entities.Enums;
 using Yafers.Web.Data.Entities.Interfaces;
 using Yafers.Web.Domain;
+using Yafers.Web.Middleware;
 
 namespace Yafers.Web.Data
 {
-    public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, bool isSystemAudit = false) : IdentityDbContext<ApplicationUser, ApplicationRole, string>(options)
+    public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, ILogger<ApplicationDbContext> logger, bool isSystemAudit = false) : IdentityDbContext<ApplicationUser, ApplicationRole, string>(options)
     {
+        private static readonly object _consoleLock = new();
+        private readonly Guid _instanceId = Guid.NewGuid();
         private const string LastUpdatedByIdField = "LastUpdatedById";
         private const string SuperUserId = "SuperUserId";
         private readonly Dictionary<Type, HashSet<string>> _propertiesToSkip = new Dictionary<Type, HashSet<string>>();
 
+        private void Log(string message)
+        {
+            try
+            {
+                lock (_consoleLock)
+                {
+                    var msg = $"[DbContext:{_instanceId}] [Thread:{Thread.CurrentThread.ManagedThreadId}] {message}";
+                    logger.LogInformation(msg);
+                    Console.WriteLine(msg);
+                }
+            }
+            catch
+            {
+                // ignore logging errors
+            }
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            Log("OnModelCreating");
+            base.OnModelCreating(modelBuilder);
             var configurator = new EntityConfigurator();
 
             configurator.Configure(modelBuilder);
@@ -27,10 +49,13 @@ namespace Yafers.Web.Data
             CancellationToken cancellationToken = default
         )
         {
+            Log("SaveChangesAsync ENTER");
             var auditEntries = OnBeforeSaveChanges();
             var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
             OnAfterSaveChanges(auditEntries);
+            Log("SaveChangesAsync AFTER first base.SaveChangesAsync");
             await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            Log("SaveChangesAsync EXIT");
             return result;
         }
 
@@ -38,16 +63,18 @@ namespace Yafers.Web.Data
             bool acceptAllChangesOnSuccess
         )
         {
+            Log("SaveChanges ENTER");
             var auditEntries = OnBeforeSaveChanges();
             var result = base.SaveChanges(acceptAllChangesOnSuccess);
             OnAfterSaveChanges(auditEntries);
             base.SaveChanges(acceptAllChangesOnSuccess);
-
+            Log("SaveChanges EXIT");
             return result;
         }
 
         private List<AuditEntry> OnBeforeSaveChanges()
         {
+            Log("OnBeforeSaveChanges START");
             ChangeTracker.DetectChanges();
             var auditEntries = new List<AuditEntry>();
             foreach (var entry in ChangeTracker.Entries<IAuditable>())
@@ -64,6 +91,7 @@ namespace Yafers.Web.Data
             }
 
             // Keep a list of entries where the value of some properties are unknown at this step
+            Log("OnBeforeSaveChanges END");
             return auditEntries.Where(e => e.HasTemporaryProperties).ToList();
         }
 
@@ -241,7 +269,6 @@ namespace Yafers.Web.Data
         public DbSet<ApplicationUser> ApplicationUsers { get; set; }
         public DbSet<Audit> Audits { get; set; }
         public DbSet<Association> Associations { get; set; }
-        public DbSet<ApplicationRole> ApplicationRoles { get; set; }
         public DbSet<Ceili> Ceilis { get; set; }
         public DbSet<Competition> Competitions { get; set; }
         public DbSet<CompetitionRegistration> CompetitionRegistrations { get; set; }

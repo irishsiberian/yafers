@@ -13,7 +13,7 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
         catch (Exception ex)
         {
             logger.LogError(ex, "Unhandled exception");
-            await telegramBot.SendException(ex, context);
+            await telegramBot.SendException(ex, context, null);
         }
     }
 }

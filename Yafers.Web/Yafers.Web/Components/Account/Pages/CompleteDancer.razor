@@ -1,0 +1,148 @@
+﻿@page "/Account/CompleteDancer"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Yafers.Web.Components.Account.Base
+@using Yafers.Web.Components.Shared
+@using Yafers.Web.Data
+@using Yafers.Web.Data.Entities
+@using Yafers.Web.Services
+@using Yafers.Web.Services.Business.Interfaces
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IUserPermissionService UserPermissionService
+@inject IDancerService DancerService
+@inherits AuthenticatedComponentBase
+
+<PageTitle>Complete dancer profile</PageTitle>
+
+<h1>Complete dancer details</h1>
+
+<StatusMessage Message="@message" />
+
+<EditForm Model="Model" OnValidSubmit="OnSubmitAsync" FormName="complete-dancer">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" role="alert" />
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="Model.FirstName" class="form-control" placeholder="First name" />
+        <label class="form-label">First name</label>
+    </div>
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="Model.LastName" class="form-control" placeholder="Last name" />
+        <label class="form-label">Last name</label>
+    </div>
+    <div class="form-floating mb-3">
+        <InputDate @bind-Value="Model.BirthDate" class="form-control" />
+        <label class="form-label">Birth date</label>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">School</label>
+        <SchoolSelect @bind-Value="Model.SchoolId" Placeholder="Type school name (min 2 chars)" />
+    </div>
+
+    <button class="btn btn-primary" type="submit">Save</button>
+</EditForm>
+
+@code {
+    private string? message;
+    private DancerModel Model { get; set; } = new();
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? returnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await UserPermissionService.GetCurrentUserNoTrackingAsync();
+
+        var dancer = await DancerService.GetByUserAsync(user.Id);
+        if (dancer != null)
+        {
+            Model.FirstName = dancer.FirstName;
+            Model.LastName = dancer.LastName;
+            Model.BirthDate = dancer.BirthDate == default ? DateTime.UtcNow : dancer.BirthDate;
+            Model.SchoolId = dancer.SchoolId;
+        }
+    }
+
+    private async Task OnSubmitAsync()
+    {
+        var user = await UserPermissionService.GetCurrentUserNoTrackingAsync();
+        await using var db = DbFactory.CreateDbContext();
+
+        var dancer = await DancerService.GetByUserAsync(user.Id);
+        var added = false;
+        if (dancer == null)
+        {
+            dancer = new Dancer
+            {
+                UserId = user.Id,
+                CreatedAtUtc = DateTime.UtcNow,
+                CreatedBy = user.Id
+            };
+            db.Dancers.Add(dancer);
+            added = true;
+        }
+
+        dancer.FirstName = Model.FirstName;
+        dancer.LastName = Model.LastName;
+        dancer.BirthDate = Model.BirthDate;
+        dancer.SchoolId = Model.SchoolId;
+        if (!added)
+            db.Dancers.Update(dancer);
+        await db.SaveChangesAsync();
+
+        // Redirect to next incomplete role (reuse ChooseRoles logic order)
+        
+        var next = await DetermineNextAsync(user);
+        if (next is not null)
+        {
+            RedirectManager.RedirectToInteractive(next);
+           // _nav.NavigateTo(next);
+            return; //TODO почему-то этот return не срабатывает WTF
+        }
+        else
+        {
+            RedirectManager.RedirectToInteractive(returnUrl ?? "/");    
+        }
+        
+    }
+
+    private async Task<string?> DetermineNextAsync(ApplicationUser user)
+    {
+        await using var db = DbFactory.CreateDbContext();
+
+        if (await UserPermissionService.IsDancerParentAsync())
+        {
+            var p = await db.DancerParents.FirstOrDefaultAsync(x => x.UserId == user.Id);
+            if (p == null || string.IsNullOrEmpty(p.FirstName) || string.IsNullOrEmpty(p.LastName))
+                return "Account/CompleteParent";
+        }
+        if (await UserPermissionService.IsTeacherAsync())
+        {
+            var t = await db.Teachers.FirstOrDefaultAsync(x => x.UserId == user.Id);
+            if (t == null || t.SchoolId == 0)
+                return "Account/CompleteTeacher";
+        }
+        if (await UserPermissionService.IsOrganiserAsync())
+        {
+            var o = await db.Organisers.FirstOrDefaultAsync(x => x.UserId == user.Id);
+            if (o == null)
+                return "Account/CompleteOrganiser";
+        }
+        return null;
+    }
+
+    private sealed class DancerModel
+    {
+        [Required] public string FirstName { get; set; } = "";
+        [Required] public string LastName { get; set; } = "";
+        [Required] public DateTime BirthDate { get; set; } = DateTime.UtcNow;
+        public int? SchoolId { get; set; }
+    }
+}

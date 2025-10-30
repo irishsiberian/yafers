@@ -1,0 +1,90 @@
+@page "/Account/CompleteOrganiser"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Yafers.Web.Components.Account.Base
+@using Yafers.Web.Data
+@using Yafers.Web.Data.Entities
+@using Yafers.Web.Services
+@using Yafers.Web.Services.Business.Interfaces
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IUserPermissionService UserPermissionService
+@inject IOrganiserService OrganiserService
+@inherits AuthenticatedComponentBase
+
+<PageTitle>Complete organiser profile</PageTitle>
+
+<h1>Complete organiser details</h1>
+
+<StatusMessage Message="@message" />
+
+<EditForm Model="Model" OnValidSubmit="OnSubmitAsync" FormName="complete-organiser">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" role="alert" />
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="Model.StripeKey" class="form-control" placeholder="Stripe key (optional)" />
+        <label class="form-label">Stripe key</label>
+        <InputText @bind-Value="Model.PayPalCode" class="form-control" placeholder="Stripe key (optional)" />
+        <label class="form-label">PayPal Code</label>
+    </div>
+
+    <div class="mt-2">
+        <p class="text-warning">After saving, please wait for approval by an administrator.</p>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Save</button>
+</EditForm>
+
+@code {
+    private string? message;
+    private OrganiserModel Model { get; set; } = new();
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? returnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await UserPermissionService.GetCurrentUserNoTrackingAsync();
+        await using var db = DbFactory.CreateDbContext();
+        var organiser = await OrganiserService.GetByUserAsync(user.Id); ;
+        if (organiser != null)
+        {
+            Model.StripeKey = organiser.StripeKey;
+        }
+    }
+
+    private async Task OnSubmitAsync()
+    {
+        var user = await UserPermissionService.GetCurrentUserNoTrackingAsync();
+        await using var db = DbFactory.CreateDbContext();
+        var organiser = await db.Organisers.FirstOrDefaultAsync(o => o.UserId == user.Id);
+        var added = false;
+        if (organiser == null)
+        {
+            organiser = new Organiser { UserId = user.Id, CreatedAtUtc = DateTime.UtcNow, CreatedBy = user.Id };
+            db.Organisers.Add(organiser);
+            added = true;
+        }
+
+        organiser.PayPalCode = Model.PayPalCode;
+        organiser.StripeKey = Model.StripeKey;
+        organiser.IsApprovedByAdmin = false;
+        if (!added)
+            db.Organisers.Update(organiser);
+        await db.SaveChangesAsync();
+
+        RedirectManager.RedirectToInteractive(returnUrl ?? "");
+    }
+
+    private sealed class OrganiserModel
+    {
+        public string StripeKey { get; set; } = "";
+        public string PayPalCode { get; set; } = "";
+    }
+}

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Yafers.Web.Consts;
 using Yafers.Web.Data.Entities;
 
 namespace Yafers.Web.Data
@@ -11,7 +12,7 @@ namespace Yafers.Web.Data
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
             // Define roles to seed
-            var roles = new[] { "Admin", "Teacher", "Dancer", "Organiser", "Adjudicator", "DancerParent" };
+            var roles = new[] { RoleNames.Admin, RoleNames.Teacher, RoleNames.Dancer, RoleNames.Organiser, RoleNames.Adjudicator, RoleNames.DancerParent };
 
             // Seed roles
             foreach (var role in roles)
@@ -53,7 +54,7 @@ namespace Yafers.Web.Data
                 if (result.Succeeded)
                 {
                     // Assign the Admin role to the user
-                    await userManager.AddToRoleAsync(adminUser, "Admin");
+                    await userManager.AddToRoleAsync(adminUser, RoleNames.Admin);
                 }
                 else
                 {

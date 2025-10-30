@@ -1,0 +1,86 @@
+@using Yafers.Web.Services.Business.Interfaces
+@inject ISchoolService SchoolService
+
+<div class="school-select">
+    <select class="form-select" @bind="SelectedId">
+        <option value="0">-- select school --</option>
+        @foreach (var s in Items)
+        {
+            <option value="@s.Id">@s.Name@if(!string.IsNullOrEmpty(s.City)){
+            <text> (@s.City)</text>
+        }
+</option>
+                }
+    </select>
+</div>
+
+@code {
+    [Parameter]
+    public int? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<int?> ValueChanged { get; set; }
+
+    [Parameter]
+    public string Placeholder { get; set; } = "Select school";
+
+    private List<SchoolItem> Items { get; set; } = new();
+
+    private int? SelectedId
+    {
+        get => Value;
+        set
+        {
+            if (Value != value)
+            {
+                Value = value;
+                _ = ValueChanged.InvokeAsync(value);
+            }
+        }
+    }
+
+    private bool _loaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (_loaded) return; 
+        _loaded = true;
+        try
+        {
+            var list = await SchoolService.SearchAsync(null);
+            Items = list?.Select(x => new SchoolItem
+            {
+                Id = x.Id,
+                Name = x.Name,
+                City = x.City,
+                Country = x.Country
+            }).ToList() ?? new();
+        }
+        catch
+        {
+            Items = new();
+        }
+
+        // If an external Value is set but not present in Items, try to load it
+        if (Value != 0 && !Items.Any(i => i.Id == Value))
+        {
+            try
+            {
+                var s = await SchoolService.GetByIdAsync(Value);
+                if (s != null)
+                {
+                    Items.Insert(0, new SchoolItem { Id = s.Id, Name = s.Name, City = s.City, Country = s.Country });
+                }
+            }
+            catch { /* ignore */ }
+        }
+    }
+
+    private sealed class SchoolItem
+    {
+        public int? Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? City { get; set; }
+        public string? Country { get; set; }
+    }
+}

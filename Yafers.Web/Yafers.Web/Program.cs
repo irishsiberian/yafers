@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
@@ -15,6 +16,9 @@ using Yafers.Web.Data;
 using Yafers.Web.Data.Entities;
 using Yafers.Web.Extensions;
 using Yafers.Web.Middleware;
+using Yafers.Web.Services;
+using Yafers.Web.Services.Business;
+using Yafers.Web.Services.Business.Interfaces;
 using Yafers.Web.Services.EmailSender;
 using Yafers.Web.Services.Telegram;
 
@@ -26,6 +30,10 @@ builder.Host.UseSerilog();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
+
+// Add API controller services and OpenAPI explorer
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddControllers();
 
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
@@ -40,6 +48,13 @@ Log.Verbose("Logger created");
 try
 {
     builder.Services.AddCommonConfiguration(builder.Configuration);
+
+    builder.Services.AddHttpClient("ApiClient", client =>
+    {
+        client.BaseAddress = new Uri(builder.Configuration["App:BaseUrl"] ?? "https://localhost:5166/");
+    });
+    // make IHttpClientFactory-created client available when injecting HttpClient
+    builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("ApiClient"));
 
     //сервисы для аутентификации и Identity
     builder.Services.AddCascadingAuthenticationState();
@@ -66,10 +81,9 @@ try
         option.OperationFilter<SecurityRequirementsOperationFilter>();
     });
 
-//Строка подключения к БД и настройка DbContext
-    builder.Services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
+    //Строка подключения к БД и настройка DbContext
+    builder.Services.AddDbContextFactory<ApplicationDbContext>((serviceProvider, options) =>
     {
-        // Берём DatabaseOptions из DI
         var dbOptions = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
 
         if (string.IsNullOrEmpty(dbOptions.YafersConnectionString))
@@ -77,12 +91,14 @@ try
 
         options.UseSqlServer(dbOptions.YafersConnectionString);
     });
+
     builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
     //Добавляем IdentityApi и IdentityCore
     builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
         {
-            options.SignIn.RequireConfirmedEmail = true; // опционально
+            options.SignIn.RequireConfirmedEmail = true;
+            options.SignIn.RequireConfirmedAccount = true; 
         })
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders();
@@ -100,10 +116,35 @@ try
     builder.Services.Configure<TelegramBotOptions>(builder.Configuration);
     builder.Services.Configure<DatabaseOptions>(builder.Configuration);
     builder.Services.AddSingleton<TelegramBot>();
-
+    builder.Services.AddSingleton<IHubFilter, Yafers.Web.Infrastructure.SignalRExceptionFilter>();
     builder.Services.AddHostedService<MigrationRunner>();
 
+
+    //Business Rules
+    builder.Services.AddScoped<ISchoolService, SchoolService>();
+    builder.Services.AddScoped<IDancerService, DancerService>();
+    builder.Services.AddScoped<IDancerParentService, DancerParentService>();
+    builder.Services.AddScoped<ITeacherService, TeacherService>();
+    builder.Services.AddScoped<IOrganiserService, OrganiserService>();
+    builder.Services.AddScoped<IUserPermissionService, UserPermissionService>();
+
+    builder.Services.AddScoped<UserManagerWrapper>();
+
     var app = builder.Build();
+
+    AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+    {
+        var ex = e.ExceptionObject as Exception;
+        var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Global");
+        logger.LogCritical(ex, "Unhandled exception (AppDomain)");
+    };
+
+    TaskScheduler.UnobservedTaskException += (sender, e) =>
+    {
+        var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Global");
+        logger.LogError(e.Exception, "Unobserved task exception");
+        e.SetObserved();
+    };
 
     app.MapIdentityApi<ApplicationUser>();
 
@@ -128,12 +169,16 @@ try
 
     app.UseStaticFiles();
     app.UseAuthentication();
+
     app.UseAuthorization();
     app.UseAntiforgery();
 
+    // Map API controllers so Swagger can discover them
+    app.MapControllers();
+
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode()
-        .AddInteractiveWebAssemblyRenderMode()
+        //.AddInteractiveWebAssemblyRenderMode()
         .AddAdditionalAssemblies(typeof(Yafers.Web.Client._Imports).Assembly);
 
 // Add additional endpoints required by the Identity /Account Razor components.
@@ -166,7 +211,7 @@ catch (Exception ex)
 
         if (bot != null)
         {
-            bot.SendException(ex, null).GetAwaiter().GetResult();
+            bot.SendException(ex, null, null).GetAwaiter().GetResult();
         }
         else
         {

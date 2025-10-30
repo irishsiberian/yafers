@@ -20,8 +20,8 @@ namespace Yafers.Web.Data.Entities
         public string DeletedBy { get; set; }
         public bool IsDeleted { get; set; }
 
-        public School Parent { get; set; }
+        public School? Parent { get; set; }
         public List<School> Branches { get; set; }
-        public List<Teacher> Teachers { get; set; }
+        public List<Teacher>? Teachers { get; set; }
     }
 }

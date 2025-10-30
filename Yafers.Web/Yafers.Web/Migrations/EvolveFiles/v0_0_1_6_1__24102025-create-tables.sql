@@ -1,4 +1,4 @@
-﻿IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Audit')
+﻿IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Audits')
     BEGIN
         CREATE TABLE Audit
         (
@@ -6,7 +6,7 @@
             CreatedDate DATETIME2 NULL,
             TableName NVARCHAR(256) NULL,
             Changes NVARCHAR(MAX) NULL,
-            LastModifiedById INT NULL,
+            LastUpdatedById INT NULL,
             AuditableObjectId INT NULL,
             AuditableEntityType INT NULL
         );
@@ -132,6 +132,8 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Organ
             PayPalEnabled BIT NOT NULL DEFAULT(0),
             PayPalCode NVARCHAR(MAX) NULL,
             IsApprovedByAdmin BIT NOT NULL DEFAULT(0),
+            ApprovedAtUtc DATETIME2 NULL,
+            ApprovedBy NVARCHAR(450) NULL,
 
             CreatedAtUtc DATETIME2 NOT NULL,
             CreatedBy NVARCHAR(450) NOT NULL,
@@ -152,12 +154,14 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Teach
             Id INT IDENTITY(1,1) PRIMARY KEY,
             FirstName NVARCHAR(100) NOT NULL,
             LastName NVARCHAR(100) NOT NULL,
-            SchoolId INT NOT NULL,
+            SchoolId INT NULL,
             Phone NVARCHAR(50) NULL,
             Email NVARCHAR(100) NULL,
             UserId NVARCHAR(450) NULL,
             Qualification INT NOT NULL,
             IsApprovedByAdminOrAnotherTeacher BIT NOT NULL DEFAULT(0),
+            ApprovedAtUtc DATETIME2 NULL,
+            ApprovedBy NVARCHAR(450) NULL,
 
             CreatedAtUtc DATETIME2 NOT NULL,
             CreatedBy NVARCHAR(450) NOT NULL,
@@ -259,7 +263,7 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Feise
             Venue NVARCHAR(1024) NOT NULL,
             OrganiserSchoolId INT NOT NULL,     -- FK на Schools
             Contacts NVARCHAR(1024) NOT NULL,
-            EventUrl NVARCHAR(4096) NULL,
+            EventUrl NVARCHAR(MAX) NULL,
             Description NVARCHAR(MAX) NULL,
             FeisType INT NOT NULL,              -- enum FeisType
             AssociationId INT NOT NULL,         -- FK на Associations
@@ -268,6 +272,7 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Feise
             Status INT NOT NULL,                -- enum FeisStatus
             IsYafersFeePaid BIT NOT NULL DEFAULT(0),
             YafersFeePaidAtUtc DATETIME2 NULL,
+            IsCashPaymentsAllowed BIT NOT NULL DEFAULT(0),
 
             CreatedAtUtc DATETIME2 NOT NULL,
             CreatedBy NVARCHAR(450) NOT NULL,
@@ -315,7 +320,7 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Dance
             LastName NVARCHAR(100) NOT NULL,
             BirthDate DATETIME2 NOT NULL,
             Gender INT NOT NULL,                -- enum Gender
-            SchoolId INT NOT NULL,              -- FK на Schools
+            SchoolId INT NULL,              -- FK на Schools
             UserId NVARCHAR(450) NULL,          -- FK на AspNetUsers
             DancerParentId INT NULL,            -- FK на DancerParents
             DancerParentUserId NVARCHAR(450) NULL, -- FK на AspNetUsers
@@ -425,7 +430,7 @@ IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Repor
         (
             Id INT IDENTITY(1,1) PRIMARY KEY,
             FeisId INT NOT NULL,                -- FK на Feiseanna
-            FileUrl NVARCHAR(4096) NOT NULL,
+            FileUrl NVARCHAR(MAX) NOT NULL,
             FileName NVARCHAR(1024) NOT NULL,
             Type INT NOT NULL,                   -- enum ReportType
             Status INT NOT NULL,                 -- enum ReportStatus

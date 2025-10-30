@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using Yafers.Web.Data.Entities;
+using Yafers.Web.Data.Entities.Interfaces;
 
 namespace Yafers.Web.Data
 {
@@ -71,6 +73,9 @@ namespace Yafers.Web.Data
                 entity.HasOne(c => c.DancerParentUser)
                     .WithMany()
                     .HasForeignKey(c => c.DancerParentUserId);
+                entity.HasOne(c => c.DancerUser)
+                    .WithMany()
+                    .HasForeignKey(c => c.UserId);
                 entity.HasMany(d => d.Registrations)
                     .WithOne()
                     .HasForeignKey(r => r.DancerId);
@@ -144,8 +149,16 @@ namespace Yafers.Web.Data
                     .WithMany(c => c.Branches)
                     .HasForeignKey(c => c.ParentId);
                 entity.HasMany(c => c.Teachers)
-                    .WithOne()
+                    .WithOne(c => c.School)
                     .HasForeignKey(d => d.SchoolId);
+            });
+
+            builder.Entity<Association>(entity =>
+            {
+                entity.ToTable("Associations");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.AffiliationFeeAmount).HasPrecision(18, 2);
+                entity.Property(e => e.LocalFeisFeeAmount).HasPrecision(18, 2);
             });
 
             builder.Entity<Syllabus>(entity =>
@@ -168,14 +181,23 @@ namespace Yafers.Web.Data
                             j.ToTable("SyllabusCompetitions");
                             j.HasKey(x => x.Id);
                         });
+                entity.Property(e => e.AdminFee).HasPrecision(18, 2);
+                entity.Property(e => e.ChampionshipPrice).HasPrecision(18, 2);
+                entity.Property(e => e.PremiershipPrice).HasPrecision(18, 2);
+                entity.Property(e => e.SoloDancePrice).HasPrecision(18, 2);
+            });
+
+            builder.Entity<Invoice>(entity =>
+            {
+                entity.ToTable("Invoices");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.TotalSum).HasPrecision(18, 2);
             });
 
             builder.Entity<SyllabusCompetition>(entity =>
             {
                 entity.ToTable("SyllabusCompetitions");
-
                 entity.HasKey(sc => sc.Id);
-
                 entity.HasOne(sc => sc.Syllabus)
                     .WithMany(s => s.SyllabusCompetitions)
                     .HasForeignKey(sc => sc.SyllabusId);
@@ -183,7 +205,25 @@ namespace Yafers.Web.Data
                 entity.HasOne(sc => sc.Competition)
                     .WithMany(c => c.SyllabusCompetitions)
                     .HasForeignKey(sc => sc.CompetitionId);
+
+                entity.Property(e => e.PriceOverride).HasPrecision(18, 2);
             });
+
+            // Apply global query filter for IAuditable entities: IsDeleted == false
+            foreach (var entityType in builder.Model.GetEntityTypes())
+            {
+                var clrType = entityType.ClrType;
+                if (clrType == null) continue;
+                if (!typeof(IAuditable).IsAssignableFrom(clrType)) continue;
+
+                var parameter = Expression.Parameter(clrType, "e");
+                // Access property "IsDeleted" on the CLR type instance
+                var isDeletedProperty = Expression.PropertyOrField(parameter, "IsDeleted");
+                var notDeleted = Expression.Equal(isDeletedProperty, Expression.Constant(false));
+                var lambda = Expression.Lambda(notDeleted, parameter);
+
+                builder.Entity(clrType).HasQueryFilter(lambda);
+            }
         }
     }
 }

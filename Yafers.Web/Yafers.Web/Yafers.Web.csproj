@@ -39,5 +39,9 @@
   <ItemGroup>
     <Folder Include="Migrations\Repeatable\" />
   </ItemGroup>
-
+  <ItemGroup>
+    <None Update="Migrations\EvolveFiles\*.sql">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

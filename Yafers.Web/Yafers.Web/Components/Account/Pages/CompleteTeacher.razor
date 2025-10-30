@@ -1,0 +1,137 @@
+@page "/Account/CompleteTeacher"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Yafers.Web.Components.Account.Base
+@using Yafers.Web.Components.Shared
+@using Yafers.Web.Data
+@using Yafers.Web.Data.Entities
+@using Yafers.Web.Services
+@using Yafers.Web.Services.Business.Interfaces
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IUserPermissionService UserPermissionService
+@inject IDancerService DancerService
+@inject IDancerParentService DancerParentService
+@inject ITeacherService TeacherService
+@inherits AuthenticatedComponentBase
+
+<PageTitle>Complete teacher profile</PageTitle>
+
+<h1>Complete teacher details</h1>
+
+<StatusMessage Message="@message" />
+
+<EditForm Model="Model" OnValidSubmit="OnSubmitAsync" FormName="complete-teacher">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" role="alert" />
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="Model.FirstName" class="form-control" placeholder="First name" />
+        <label class="form-label">First name</label>
+    </div>
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="Model.LastName" class="form-control" placeholder="Last name" />
+        <label class="form-label">Last name</label>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">School</label>
+        <SchoolSelect @bind-Value="Model.SchoolId" Placeholder="Type school name (min 2 chars)" />
+    </div>
+
+    <div class="mt-2">
+        <p class="text-warning">After saving, please wait for approval by an admin or another teacher from your school.</p>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Save</button>
+</EditForm>
+
+@code {
+    private string? message;
+    private TeacherModel Model { get; set; } = new();
+    private CancellationTokenSource? _cts;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? returnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await UserPermissionService.GetCurrentUserNoTrackingAsync();
+        await using var db = DbFactory.CreateDbContext();
+
+        // If user is also a dancer, prefill data from dancer
+        var dancer = await DancerService.GetByUserAsync(user.Id);
+        if (dancer != null)
+        {
+            Model.FirstName = string.IsNullOrEmpty(Model.FirstName) ? dancer.FirstName : Model.FirstName;
+            Model.LastName = string.IsNullOrEmpty(Model.LastName) ? dancer.LastName : Model.LastName;
+        }
+
+        // If user is also a parent, prefill data from parent
+        var parent = await DancerParentService.GetByUserAsync(user.Id);
+        if (parent != null)
+        {
+            Model.FirstName = string.IsNullOrEmpty(Model.FirstName) ? parent.FirstName : Model.FirstName;
+            Model.LastName = string.IsNullOrEmpty(Model.LastName) ? parent.LastName : Model.LastName;
+        }
+
+        var teacher = await TeacherService.GetByUserAsync(user.Id);
+        if (teacher != null)
+        {
+            Model.FirstName = teacher.FirstName;
+            Model.LastName = teacher.LastName;
+            Model.SchoolId = teacher.SchoolId;
+        }
+    }
+
+    private async Task OnSubmitAsync()
+    {
+        var user = await UserPermissionService.GetCurrentUserNoTrackingAsync();
+        await using var db = DbFactory.CreateDbContext();
+        var teacher = await TeacherService.GetByUserAsync(user.Id);
+        var added = false;
+        if (teacher == null)
+        {
+            teacher = new Teacher { UserId = user.Id, CreatedAtUtc = DateTime.UtcNow, CreatedBy = user.Id };
+            db.Teachers.Add(teacher);
+            added = true;
+        }
+
+        teacher.FirstName = Model.FirstName;
+        teacher.LastName = Model.LastName;
+        teacher.SchoolId = Model.SchoolId;
+        teacher.IsApprovedByAdminOrAnotherTeacher = false;
+        if (!added)
+        {
+            db.Teachers.Update(teacher);
+        }
+
+        await db.SaveChangesAsync();
+
+        // Next
+        if (await UserPermissionService.IsOrganiserAsync())
+        {
+            var o = await db.Organisers.FirstOrDefaultAsync(x => x.UserId == user.Id);
+            if (o == null)
+            {
+                RedirectManager.RedirectToInteractive(Consts.Routes.CompleteOrganiser);
+            }
+        }
+        else
+        {
+            RedirectManager.RedirectToInteractive(returnUrl ?? "");
+        }
+    }
+
+    private sealed class TeacherModel
+    {
+        [Required] public string FirstName { get; set; } = "";
+        [Required] public string LastName { get; set; } = "";
+        [Required] public int? SchoolId { get; set; }
+    }
+}

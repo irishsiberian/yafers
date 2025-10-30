@@ -3,14 +3,15 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
-@using Yafers.Web.Data
 @using Yafers.Web.Data.Entities
+@using Yafers.Web.Services
 
 @inject SignInManager<ApplicationUser> SignInManager
 @inject ILogger<Login> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 @inject UserManager<ApplicationUser> UserManager
+@inject IUserPermissionService UserPermissionService
 
 <PageTitle>Log in</PageTitle>
 
@@ -21,8 +22,6 @@
             <StatusMessage Message="@errorMessage" />
             <EditForm Model="Input" method="post" OnValidSubmit="LoginUser" FormName="login">
                 <DataAnnotationsValidator />
-                <h2>Use a local account to log in.</h2>
-                <hr />
                 <ValidationSummary class="text-danger" role="alert" />
                 <div class="form-floating mb-3">
                     <InputText @bind-Value="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
@@ -55,13 +54,6 @@
                     </p>
                 </div>
             </EditForm>
-        </section>
-    </div>
-    <div class="col-md-6 col-md-offset-2">
-        <section>
-            <h3>Use another service to log in.</h3>
-            <hr />
-            <ExternalLoginPicker />
         </section>
     </div>
 </div>
@@ -104,6 +96,11 @@
         {
             await SignInManager.SignInAsync(user, isPersistent: Input.RememberMe);
             Logger.LogInformation("User logged in.");
+            var nextUrl = await UserPermissionService.GetNextIncompleteRolePageAsync(user);
+            if (nextUrl != null)
+            {
+                RedirectManager.RedirectTo(nextUrl);
+            }
             RedirectManager.RedirectTo(ReturnUrl);
         }
         else if (result.RequiresTwoFactor)

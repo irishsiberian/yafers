@@ -1,0 +1,100 @@
+@page "/Account/ChooseRoles"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Authorization
+@using Yafers.Web.Consts
+@using Yafers.Web.Components.Account.Base
+@using Yafers.Web.Services
+
+@inject IdentityRedirectManager RedirectManager
+@inject IUserPermissionService UserPermissionService
+@inherits AuthenticatedComponentBase
+
+<PageTitle>Choose roles</PageTitle>
+
+<h1>Choose your roles</h1>
+
+<StatusMessage Message="@statusMessage" />
+
+<EditForm OnValidSubmit="OnSubmitAsync" Model="Model" FormName="choose-roles">
+    <div class="form-check">
+        <InputCheckbox @bind-Value="Model.IsDancer" class="form-check-input" id="dancer" />
+        <label class="form-check-label" for="dancer">Dancer</label>
+    </div>
+    <div class="form-check">
+        <InputCheckbox @bind-Value="Model.IsParent" class="form-check-input" id="parent" />
+        <label class="form-check-label" for="parent">Parent</label>
+    </div>
+    <div class="form-check">
+        <InputCheckbox @bind-Value="Model.IsTeacher" class="form-check-input" id="teacher" />
+        <label class="form-check-label" for="teacher">Teacher (requires school approval)</label>
+    </div>
+    <div class="form-check">
+        <InputCheckbox @bind-Value="Model.IsOrganiser" class="form-check-input" id="organiser" />
+        <label class="form-check-label" for="organiser">Organiser (requires admin approval)</label>
+    </div>
+
+    <div class="mt-3">
+        <button class="btn btn-primary" type="submit">Save roles</button>
+    </div>
+</EditForm>
+
+@code {
+    private string? statusMessage;
+    private RolesModel Model { get; set; } = new();
+
+    [SupplyParameterFromQuery]
+    private string? returnUrl { get; set; }
+
+    protected override async Task OnUserInitializedAsync()
+    {
+        Model.IsDancer = await UserPermissionService.IsDancerAsync();
+        Model.IsParent = await UserPermissionService.IsDancerParentAsync();
+        Model.IsTeacher = await UserPermissionService.IsTeacherAsync();
+        Model.IsOrganiser = await UserPermissionService.IsOrganiserAsync();
+    }
+
+    private async Task OnSubmitAsync()
+    {
+        var selected = new List<string>();
+        if (Model.IsDancer) selected.Add(RoleNames.Dancer);
+        if (Model.IsParent) selected.Add(RoleNames.DancerParent);
+        if (Model.IsTeacher) selected.Add(RoleNames.Teacher);
+        if (Model.IsOrganiser) selected.Add(RoleNames.Organiser);
+
+        if (selected.Count == 0)
+        {
+            statusMessage = "Please select at least one role.";
+            return;
+        }
+
+        // Ensure roles exist and assign (simplified existing logic)
+        foreach (var role in selected)
+        {
+            if (!await UserPermissionService.IsInRoleAsync(role))
+            {
+                await UserPermissionService.AddToRoleAsync(role);
+            }
+        }
+        await UserPermissionService.CreatePlaceholderEntity(selected);
+
+        var user = await UserPermissionService.GetCurrentUserNoTrackingAsync();
+        var next = await UserPermissionService.GetNextIncompleteRolePageAsync(user);
+        if (next is not null)
+        {
+            RedirectManager.RedirectTo(next, new() { ["returnUrl"] = returnUrl });
+            return;
+        }
+
+        RedirectManager.RedirectTo(returnUrl ?? "");
+    }
+
+    private sealed class RolesModel
+    {
+        public bool IsDancer { get; set; }
+        public bool IsParent { get; set; }
+        public bool IsTeacher { get; set; }
+        public bool IsOrganiser { get; set; }
+    }
+}

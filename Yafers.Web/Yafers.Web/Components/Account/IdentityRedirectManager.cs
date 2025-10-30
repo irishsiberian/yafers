@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Yafers.Web.Components.Account
 {
-    internal sealed class IdentityRedirectManager(NavigationManager navigationManager)
+    public sealed class IdentityRedirectManager(NavigationManager navigationManager)
     {
         public const string StatusCookieName = "Identity.StatusMessage";
 
@@ -30,6 +30,27 @@ namespace Yafers.Web.Components.Account
             // So as long as this is called from a statically rendered Identity component, the InvalidOperationException is never thrown.
             navigationManager.NavigateTo(uri);
             throw new InvalidOperationException($"{nameof(IdentityRedirectManager)} can only be used during static rendering.");
+        }
+
+        public void RedirectToInteractive(string? uri, bool forceLoad = true)
+        {
+            uri ??= "";
+
+            // Prevent open redirects.
+            if (!Uri.IsWellFormedUriString(uri, UriKind.Relative))
+            {
+                uri = navigationManager.ToBaseRelativePath(uri);
+            }
+
+            // In interactive mode this performs client navigation and returns normally.
+            navigationManager.NavigateTo(uri, forceLoad);
+        }
+
+        public void RedirectToInteractive(string uri, Dictionary<string, object?> queryParameters, bool forceLoad = true)
+        {
+            var uriWithoutQuery = navigationManager.ToAbsoluteUri(uri).GetLeftPart(UriPartial.Path);
+            var newUri = navigationManager.GetUriWithQueryParameters(uriWithoutQuery, queryParameters);
+            RedirectToInteractive(newUri, forceLoad);
         }
 
         [DoesNotReturn]

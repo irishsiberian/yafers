@@ -1,0 +1,149 @@
+@page "/Account/CompleteParent"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.IdentityModel.Tokens
+@using Yafers.Web.Components.Account.Base
+@using Yafers.Web.Data
+@using Yafers.Web.Data.Entities
+@using Yafers.Web.Services
+@using Yafers.Web.Services.Business.Interfaces
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IUserPermissionService UserPermissionService
+@inject IDancerService DancerService
+@inject IDancerParentService DancerParentService
+@inherits AuthenticatedComponentBase
+
+<PageTitle>Complete parent profile</PageTitle>
+
+<h1>Complete parent details</h1>
+
+<StatusMessage Message="@message" />
+
+<EditForm Model="Model" OnValidSubmit="OnSubmitAsync" FormName="complete-parent">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" role="alert" />
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="Model.FirstName" class="form-control" placeholder="First name" />
+        <label class="form-label">First name</label>
+    </div>
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="Model.LastName" class="form-control" placeholder="Last name" />
+        <label class="form-label">Last name</label>
+    </div>
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="Model.Phone" class="form-control" placeholder="Phone" />
+        <label class="form-label">Phone</label>
+    </div>
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="Model.Email" class="form-control" placeholder="Email" />
+        <label class="form-label">Email</label>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Save</button>
+</EditForm>
+
+@code {
+    private string? message;
+    private ParentModel Model { get; set; } = new();
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? returnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await UserPermissionService.GetCurrentUserNoTrackingAsync();
+        await using var db = DbFactory.CreateDbContext();
+        // If user is also a dancer, prefill data from dancer
+        var dancer = await DancerService.GetByUserAsync(user.Id);
+        if (dancer != null)
+        {
+            Model.FirstName = string.IsNullOrEmpty(Model.FirstName) ? dancer.FirstName : Model.FirstName;
+            Model.LastName = string.IsNullOrEmpty(Model.LastName) ? dancer.LastName : Model.LastName;
+        }
+
+        var parent = await DancerParentService.GetByUserAsync(user.Id);
+        if (parent != null)
+        {
+            Model.FirstName = parent.FirstName;
+            Model.LastName = parent.LastName;
+            Model.Phone = parent.Phone;
+            Model.Email = parent.Email;
+        }
+
+        // default email
+        if (string.IsNullOrEmpty(Model.Email))
+            Model.Email = user.Email;
+    }
+
+    private async Task OnSubmitAsync()
+    {
+        var user = await UserPermissionService.GetCurrentUserNoTrackingAsync();
+
+        await using var db = DbFactory.CreateDbContext();
+        var parent = await DancerParentService.GetByUserAsync(user.Id);
+        var added = false;
+        if (parent == null)
+        {
+            parent = new DancerParent
+            {
+                UserId = user.Id,
+                CreatedAtUtc = DateTime.UtcNow,
+                CreatedBy = user.Id
+            };
+            db.DancerParents.Add(parent);
+            added = true;
+        }
+
+        parent.FirstName = Model.FirstName;
+        parent.LastName = Model.LastName;
+        parent.Phone = Model.Phone;
+        parent.Email = Model.Email;
+        if (!added)
+            db.DancerParents.Update(parent);
+        await db.SaveChangesAsync();
+
+        // After parent saved, continue to next incomplete
+        var next = await DetermineNextAsync(user);
+        if (next is not null)
+        {
+            RedirectManager.RedirectToInteractive(next);
+            return;
+        }
+        else
+        {
+            RedirectManager.RedirectToInteractive(returnUrl ?? "/");
+        }
+    }
+    
+    private async Task<string?> DetermineNextAsync(ApplicationUser user)
+    {
+        await using var db = DbFactory.CreateDbContext();
+        if (await UserPermissionService.IsTeacherAsync())
+        {
+            var t = await db.Teachers.FirstOrDefaultAsync(x => x.UserId == user.Id);
+            if (t == null || t.SchoolId == 0) return "Account/CompleteTeacher";
+        }
+        if (await UserPermissionService.IsOrganiserAsync())
+        {
+            var o = await db.Organisers.FirstOrDefaultAsync(x => x.UserId == user.Id);
+            if (o == null) return "Account/CompleteOrganiser";
+        }
+        return null;
+    }
+    
+    private sealed class ParentModel
+    {
+        [Required] public string FirstName { get; set; } = "";
+        [Required] public string LastName { get; set; } = "";
+        public string Phone { get; set; } = "";
+        [EmailAddress] public string Email { get; set; } = "";
+    }
+}
